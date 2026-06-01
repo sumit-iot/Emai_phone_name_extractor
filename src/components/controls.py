@@ -13,12 +13,21 @@ def render_controls() -> None:
         st.selectbox("Separator", list(SEPARATORS.keys()), key="separator")
 
     with col2:
-        st.selectbox("Output Format", OUTPUT_FORMATS, key="output_format")
+        st.selectbox(
+            "Output Format",
+            OUTPUT_FORMATS,
+            key="output_format",
+            index=0,
+        )
         st.text_input(
             "Filter (contains)",
             key="filter_query",
             placeholder="e.g. gmail.com",
         )
 
-    st.checkbox("Sort alphabetically", key="sort_alphabetically")
+    col_sort, col_gmail = st.columns(2)
+    with col_sort:
+        st.checkbox("Sort alphabetically", key="sort_alphabetically")
+    with col_gmail:
+        st.checkbox("Gmail only", key="gmail_only")
     st.markdown("</div>", unsafe_allow_html=True)
