@@ -4,14 +4,12 @@ from src.utils.constants import EMAIL_REGEX, URL_REGEX, PHONE_REGEX
 _email_re = re.compile(EMAIL_REGEX, re.IGNORECASE)
 _phone_re = re.compile(PHONE_REGEX)
 _url_re = re.compile(URL_REGEX, re.IGNORECASE)
-_sent_split = re.compile(r'(?<=[.!?])\s+|\n+')
 
-# A "digit block" that looks like a phone: 7–15 digits, possibly +/dash/dot separated
-_PHONE_TOKEN = re.compile(r'[\+\d][\d\s\-\.\(\)]{5,18}[\d]')
+# Split free text into paragraph blocks (blank lines separate search results)
+_BLOCK_SPLIT = re.compile(r'\n\s*\n')
 
 
 def _extract_phones_broad(text: str) -> list[str]:
-    """Accept formatted (US/intl) and plain digit strings (Indian 10-digit etc.)."""
     found: list[str] = []
     for token in re.split(r'[,;\s]+', text):
         token = token.strip()
@@ -22,7 +20,7 @@ def _extract_phones_broad(text: str) -> list[str]:
             found.append(token)
         elif _phone_re.search(token):
             found.append(token)
-    return found
+    return list(dict.fromkeys(found))
 
 
 def _is_tsv(text: str) -> bool:
@@ -34,16 +32,7 @@ def _is_tsv(text: str) -> bool:
 
 
 def _parse_tsv(text: str) -> list[dict]:
-    """
-    Parse tab-separated data where:
-      col0 = name / label
-      col1 = comma-separated emails
-      col2 = comma-separated phones (optional)
-      col3 = URLs (optional)
-
-    Rows where col0 yields no heuristic name are skipped.
-    Multiple rows whose col0 resolves to the same name are merged.
-    """
+    """col0=name, col1=emails, col2=phones, col3=urls per row."""
     from src.core.extractor import extract_names_heuristic
 
     bucket: dict[str, dict] = {}
@@ -58,7 +47,6 @@ def _parse_tsv(text: str) -> list[dict]:
         col2 = cols[2] if len(cols) > 2 else ''
         col3 = cols[3] if len(cols) > 3 else ''
 
-        # Skip rows where col0 is itself an email or looks like an ID/code
         if _email_re.fullmatch(col0) or re.fullmatch(r'[A-Z0-9/\-]{3,}', col0):
             continue
 
@@ -66,104 +54,87 @@ def _parse_tsv(text: str) -> list[dict]:
         if not names:
             continue
 
-        # Use the longest extracted name as the canonical key
         primary = max(names, key=len)
-
         emails = [e.lower() for e in _email_re.findall(col1)] if col1 else []
         phones = _extract_phones_broad(col2) if col2 else []
-        urls = _url_re.findall(col3) if col3 else []
+        urls = _url_re.findall(col3 or col1) if (col3 or col1) else []
+        # also scan col1 for URLs in case emails and URLs share a column
+        urls += _url_re.findall(col1) if col1 else []
 
         if primary not in bucket:
-            bucket[primary] = {
-                "name": primary,
-                "emails": set(),
-                "phones": set(),
-                "urls": set(),
-            }
+            bucket[primary] = {"name": primary, "emails": set(), "phones": set(), "urls": set()}
         bucket[primary]["emails"].update(emails)
         bucket[primary]["phones"].update(phones)
         bucket[primary]["urls"].update(urls)
 
+    return _to_rows(bucket)
+
+
+def _safe_urls(block: str, emails: list[str]) -> list[str]:
+    """Extract URLs, removing any that are just an email's domain."""
+    email_domains = {e.split("@")[1].lower().rstrip(".") for e in emails}
     return [
-        {
-            "Name": v["name"],
-            "Emails": ", ".join(sorted(v["emails"])),
-            "Phones": ", ".join(sorted(v["phones"])),
-            "URLs": ", ".join(sorted(v["urls"])),
-        }
-        for v in bucket.values()
-        if v["emails"] or v["phones"] or v["urls"]   # skip name-only rows
+        u for u in _url_re.findall(block)
+        if u.lower().rstrip("/").rstrip(".") not in email_domains
     ]
 
 
-def _associate(segments: list[str], get_entities) -> dict[str, dict]:
-    bucket: dict[str, dict] = {}
-    for seg in segments:
-        seg = seg.strip()
-        if not seg:
-            continue
-        emails = [e.lower() for e in _email_re.findall(seg)]
-        phones = _phone_re.findall(seg)
-        urls = _url_re.findall(seg)
-        if not (emails or phones or urls):
-            continue
-        entities = get_entities(seg)
-        if not entities:
-            continue
-        for name in entities:
-            if name not in bucket:
-                bucket[name] = {"name": name, "emails": set(), "phones": set(), "urls": set()}
-            bucket[name]["emails"].update(emails)
-            bucket[name]["phones"].update(phones)
-            bucket[name]["urls"].update(urls)
-    return bucket
-
-
-def build_entity_map(text: str) -> list[dict]:
+def _collect_block(block: str, nlp=None, extract_names_heuristic=None) -> dict[str, dict]:
     """
-    TSV input  → row-level parser (col0=name, col1=emails, col2=phones).
-    Free text  → sentence-level proximity via spaCy (+ heuristic fallback).
+    Extract names + contact info from a single paragraph block.
+    Uses block-level scope so URL on line 2 and email on line 3 are linked.
     """
-    if _is_tsv(text):
-        return _parse_tsv(text)
+    emails = [e.lower() for e in _email_re.findall(block)]
+    phones = _phone_re.findall(block)
+    urls = _safe_urls(block, emails)
 
-    # ── Free-text path ───────────────────────────────────────────────────
-    from src.core.extractor import _load_nlp, extract_names_heuristic
+    if not (emails or phones or urls):
+        return {}
 
-    nlp = _load_nlp()
+    seen: set[str] = set()
+    entities: list[str] = []
 
+    # Heuristic names first
+    for name in extract_names_heuristic(block):
+        if name not in seen:
+            seen.add(name)
+            entities.append(name)
+
+    # spaCy PERSON + ORG on top if available
     if nlp is not None:
-        doc = nlp(text)
-        bucket: dict[str, dict] = {}
-        for sent in doc.sents:
-            s = sent.text.strip()
-            emails = [e.lower() for e in _email_re.findall(s)]
-            phones = _phone_re.findall(s)
-            urls = _url_re.findall(s)
-            if not (emails or phones or urls):
-                continue
-            seen: set[str] = set()
-            entities: list[str] = []
-            for name in extract_names_heuristic(s):
+        doc = nlp(block)
+        for ent in doc.ents:
+            if ent.label_ in {"PERSON", "ORG"}:
+                name = ent.text.strip()
                 if name not in seen:
                     seen.add(name)
                     entities.append(name)
-            for ent in sent.ents:
-                if ent.label_ in {"PERSON", "ORG"}:
-                    name = ent.text.strip()
-                    if name not in seen:
-                        seen.add(name)
-                        entities.append(name)
-            for name in entities:
-                if name not in bucket:
-                    bucket[name] = {"name": name, "emails": set(), "phones": set(), "urls": set()}
-                bucket[name]["emails"].update(emails)
-                bucket[name]["phones"].update(phones)
-                bucket[name]["urls"].update(urls)
-    else:
-        segments = _sent_split.split(text)
-        bucket = _associate(segments, extract_names_heuristic)
 
+    if not entities:
+        return {}
+
+    bucket: dict[str, dict] = {}
+    for name in entities:
+        if name not in bucket:
+            bucket[name] = {"name": name, "emails": set(), "phones": set(), "urls": set()}
+        bucket[name]["emails"].update(emails)
+        bucket[name]["phones"].update(phones)
+        bucket[name]["urls"].update(urls)
+
+    return bucket
+
+
+def _merge(master: dict, patch: dict) -> None:
+    for name, data in patch.items():
+        if name not in master:
+            master[name] = data
+        else:
+            master[name]["emails"].update(data["emails"])
+            master[name]["phones"].update(data["phones"])
+            master[name]["urls"].update(data["urls"])
+
+
+def _to_rows(bucket: dict) -> list[dict]:
     return [
         {
             "Name": v["name"],
@@ -174,3 +145,34 @@ def build_entity_map(text: str) -> list[dict]:
         for v in bucket.values()
         if v["emails"] or v["phones"] or v["urls"]
     ]
+
+
+def build_entity_map(text: str) -> list[dict]:
+    """
+    TSV   → row-level parser.
+    Free text → paragraph/block-level association so that a URL on one line
+                and an email on the next line (typical search result format)
+                are both linked to the business name in the same block.
+    """
+    if _is_tsv(text):
+        return _parse_tsv(text)
+
+    from src.core.extractor import _load_nlp, extract_names_heuristic
+
+    nlp = _load_nlp()
+
+    # Split into paragraph blocks first (blank-line separated search results)
+    blocks = _BLOCK_SPLIT.split(text)
+    # Fall back to single-line blocks if text has no blank lines
+    if len(blocks) == 1:
+        blocks = text.splitlines()
+
+    master: dict[str, dict] = {}
+    for block in blocks:
+        block = block.strip()
+        if not block:
+            continue
+        patch = _collect_block(block, nlp=nlp, extract_names_heuristic=extract_names_heuristic)
+        _merge(master, patch)
+
+    return _to_rows(master)

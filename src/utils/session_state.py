@@ -10,10 +10,11 @@ _DEFAULTS: dict = {
     "entity_map": [],
     "separator": "New Line",
     "filter_query": "",
-    "output_format": "Plain Text",
+    "output_format": "Select Output Format",
     "sort_alphabetically": False,
     "extraction_type": "Emails",
     "remove_duplicates": True,
+    "gmail_only": False,
     "has_extracted": False,
 }
 

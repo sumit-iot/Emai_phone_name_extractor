@@ -71,7 +71,15 @@ class Extractor:
         return found
 
     def extract_urls(self, text: str, dedupe: bool = True) -> list[str]:
-        found = self._url_re.findall(text)
+        # Collect email domains so we can strip them from URL results
+        email_domains = {
+            m.split("@")[1].lower().rstrip(".")
+            for m in self._email_re.findall(text)
+        }
+        found = [
+            u for u in self._url_re.findall(text)
+            if u.lower().rstrip("/").rstrip(".") not in email_domains
+        ]
         if dedupe:
             found = list(dict.fromkeys(found))
         return found
