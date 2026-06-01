@@ -1,6 +1,7 @@
 import csv
 import io
 import json
+import pandas as pd
 
 
 def to_csv_bytes(items: list[str], header: str = "value") -> bytes:
@@ -13,6 +14,17 @@ def to_csv_bytes(items: list[str], header: str = "value") -> bytes:
 
 def to_json_bytes(items: list[str]) -> bytes:
     return json.dumps(items, indent=2).encode("utf-8")
+
+
+def to_excel_bytes(df: pd.DataFrame) -> bytes:
+    buf = io.BytesIO()
+    with pd.ExcelWriter(buf, engine="openpyxl") as writer:
+        df.to_excel(writer, index=True, sheet_name="Contacts")
+        ws = writer.sheets["Contacts"]
+        for col in ws.columns:
+            max_len = max((len(str(c.value)) if c.value else 0) for c in col)
+            ws.column_dimensions[col[0].column_letter].width = min(max_len + 4, 70)
+    return buf.getvalue()
 
 
 def clipboard_html(text: str) -> str:

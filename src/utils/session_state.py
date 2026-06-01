@@ -15,6 +15,9 @@ _DEFAULTS: dict = {
     "extraction_type": "Emails",
     "remove_duplicates": True,
     "gmail_only": False,
+    "hide_directory": True,
+    "hide_no_email": False,
+    "hide_no_name": False,
     "has_extracted": False,
 }
 
