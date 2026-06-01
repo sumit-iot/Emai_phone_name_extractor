@@ -25,7 +25,12 @@ def _do_extract() -> None:
     st.session_state.orgs = (
         extractor.extract_orgs(text, dedupe) if etype in ("Organizations", "All") else []
     )
-    st.session_state.entity_map = build_entity_map(text)
+    st.session_state.entity_map = build_entity_map(
+        text,
+        hide_directory=st.session_state.hide_directory,
+        hide_no_email=st.session_state.hide_no_email,
+        hide_no_name=st.session_state.get("hide_no_name", False),
+    )
     st.session_state.has_extracted = True
     st.session_state.filter_query = ""
 

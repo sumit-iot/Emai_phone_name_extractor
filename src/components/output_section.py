@@ -127,41 +127,5 @@ def render_output_section() -> None:
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
     st.markdown("#### 📤 Results")
-
-    etype = st.session_state.extraction_type
-
-    if etype in _NER_TYPES and not nlp_available():
-        _nlp_warning()
-
-    if etype == "All":
-        tab_e, tab_u, tab_p, tab_n, tab_o, tab_m = st.tabs(
-            ["📧 Emails", "🔗 URLs", "📞 Phones", "👤 Names", "🏢 Organizations", "🗺️ Map"]
-        )
-        with tab_e:
-            _render_result_block(st.session_state.emails, "emails")
-        with tab_u:
-            _render_result_block(st.session_state.urls, "urls")
-        with tab_p:
-            _render_result_block(st.session_state.phones, "phones")
-        with tab_n:
-            _render_result_block(st.session_state.names, "names")
-        with tab_o:
-            _render_result_block(st.session_state.orgs, "organizations")
-        with tab_m:
-            _render_entity_map()
-    elif etype == "Emails":
-        _render_result_block(st.session_state.emails, "emails")
-    elif etype == "URLs":
-        _render_result_block(st.session_state.urls, "urls")
-    elif etype == "Phone Numbers":
-        _render_result_block(st.session_state.phones, "phones")
-    elif etype == "Names":
-        _render_result_block(st.session_state.names, "names")
-    elif etype == "Organizations":
-        _render_result_block(st.session_state.orgs, "organizations")
-
-    if etype != "All":
-        with st.expander("🗺️ Entity Map — name · email · phone · URL", expanded=False):
-            _render_entity_map()
-
+    _render_entity_map()
     st.markdown("</div>", unsafe_allow_html=True)

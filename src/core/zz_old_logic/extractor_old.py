@@ -4,15 +4,12 @@ from src.utils.constants import EMAIL_REGEX, URL_REGEX, PHONE_REGEX
 
 _NAME_PATTERN = re.compile(r'\b([A-Z][a-z]{1,15}(?:\s[A-Z][a-z]{1,15}){1,2})\b')
 _NAME_SKIP = {
-    # Salutations / sign-offs
     'The', 'This', 'That', 'These', 'Hello', 'Dear', 'From', 'To',
     'Subject', 'Best', 'Kind', 'Warm', 'With', 'Please', 'Thank',
     'Regards', 'Sincerely', 'Hi', 'Hey',
-    # Days & months
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday',
     'January', 'February', 'March', 'April', 'June', 'July', 'August',
     'September', 'October', 'November', 'December',
-    # UI / tool / platform labels
     'Sales', 'Email', 'Phone', 'Contact', 'Contacts', 'Google', 'Bing',
     'Help', 'Support', 'Center', 'Account', 'Community', 'Database',
     'Network', 'Service', 'Services', 'Career', 'Growth', 'Excel',
@@ -26,15 +23,10 @@ _NAME_SKIP = {
     'Company', 'Corporation', 'Limited', 'Private',
     'New', 'Old', 'First', 'Last', 'Next', 'Previous',
     'Id', 'Ids', 'Pdf', 'Csv', 'Doc',
-    # Address / location tokens
-    'Postal', 'Address', 'Block', 'Court', 'Centre', 'City',
-    'Sector', 'Tower', 'Plaza', 'Mall', 'Road', 'Street', 'Lane',
-    'Floor', 'Wing', 'Phase', 'Zone', 'Area', 'Colony', 'Nagar',
 }
 
 
 def extract_names_heuristic(text: str) -> list[str]:
-    """Regex heuristic: capitalized word pairs/triples, filtered for common FPs."""
     seen: set[str] = set()
     results: list[str] = []
     for name in _NAME_PATTERN.findall(text):
@@ -52,7 +44,7 @@ def get_extractor() -> "Extractor":
 @st.cache_resource
 def _load_nlp():
     try:
-        import spacy  # noqa: PLC0415
+        import spacy
         return spacy.load("en_core_web_sm")
     except (ImportError, OSError):
         return None
@@ -75,15 +67,8 @@ class Extractor:
         return found
 
     def extract_urls(self, text: str, dedupe: bool = True) -> list[str]:
-        # Collect email domains so we can strip them from URL results
-        email_domains = {
-            m.split("@")[1].lower().rstrip(".")
-            for m in self._email_re.findall(text)
-        }
-        found = [
-            u for u in self._url_re.findall(text)
-            if u.lower().rstrip("/").rstrip(".") not in email_domains
-        ]
+        email_domains = {m.split("@")[1].lower().rstrip(".") for m in self._email_re.findall(text)}
+        found = [u for u in self._url_re.findall(text) if u.lower().rstrip("/").rstrip(".") not in email_domains]
         if dedupe:
             found = list(dict.fromkeys(found))
         return found
@@ -95,12 +80,9 @@ class Extractor:
         return found
 
     def extract_names(self, text: str, dedupe: bool = True) -> list[str]:
-        # Step 1: heuristic (always runs, no external deps)
         seen: set[str] = set()
         results = extract_names_heuristic(text)
         seen.update(results)
-
-        # Step 2: supplement with spaCy PERSON entities if available
         nlp = _load_nlp()
         if nlp is not None:
             doc = nlp(text)
@@ -110,7 +92,6 @@ class Extractor:
                     if name not in seen:
                         seen.add(name)
                         results.append(name)
-
         return results
 
     def extract_orgs(self, text: str, dedupe: bool = True) -> list[str]:
