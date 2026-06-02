@@ -30,6 +30,7 @@ def _do_extract() -> None:
         hide_directory=st.session_state.hide_directory,
         hide_no_email=st.session_state.hide_no_email,
         hide_no_name=st.session_state.get("hide_no_name", False),
+        hide_no_contact=st.session_state.get("hide_no_contact", False),
     )
     st.session_state.has_extracted = True
     st.session_state.filter_query = ""

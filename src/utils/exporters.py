@@ -28,25 +28,36 @@ def to_excel_bytes(df: pd.DataFrame) -> bytes:
 
 
 def clipboard_html(text: str, btn_id: str = "copy_btn") -> str:
-    safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
     escaped_js = text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     return f"""
-    <button id="{btn_id}" onclick="
-      var btn = document.getElementById('{btn_id}');
-      navigator.clipboard.writeText(`{escaped_js}`).then(function() {{
-        btn.innerHTML = '&#10003; Copied!';
-        btn.style.borderColor = '#10b981';
-        btn.style.color = '#10b981';
-        setTimeout(function() {{
-          btn.innerHTML = '&#128203; Copy to Clipboard';
-          btn.style.borderColor = '#4d8bf5';
-          btn.style.color = '#4d8bf5';
-        }}, 2000);
-      }});
-    " style="
+    <button id="{btn_id}" style="
       width:100%;background:#1a2332;color:#4d8bf5;
       border:1px solid #4d8bf5;padding:8px 16px;
       border-radius:8px;cursor:pointer;font-size:14px;
       font-family:sans-serif;transition:all .2s;
-    ">&#128203; Copy to Clipboard</button>
+    " onclick="(function(){{
+      var btn = document.getElementById('{btn_id}');
+      var txt = `{escaped_js}`;
+      function ok(){{
+        btn.innerHTML = '&#10003; Copied!';
+        btn.style.borderColor = '#10b981';
+        btn.style.color = '#10b981';
+        setTimeout(function(){{
+          btn.innerHTML = '&#128203; Copy to Clipboard';
+          btn.style.borderColor='#4d8bf5';
+          btn.style.color='#4d8bf5';
+        }}, 2000);
+      }}
+      try {{
+        (window.parent || window).navigator.clipboard.writeText(txt).then(ok);
+      }} catch(e) {{
+        var ta = document.createElement('textarea');
+        ta.value = txt;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        ok();
+      }}
+    }})()">&#128203; Copy to Clipboard</button>
     """

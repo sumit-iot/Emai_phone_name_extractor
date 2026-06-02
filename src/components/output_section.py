@@ -1,5 +1,6 @@
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from src.core.extractor import nlp_available
 from src.utils.constants import FORMAT_COLUMNS, SEPARATORS
 from src.utils.exporters import clipboard_html, to_csv_bytes
@@ -48,7 +49,7 @@ def _render_result_block(items: list[str], label: str) -> None:
 
     copy_col, dl_col = st.columns(2)
     with copy_col:
-        st.markdown(clipboard_html(text_output, btn_id=f"copy_{label}"), unsafe_allow_html=True)
+        components.html(clipboard_html(text_output, btn_id=f"copy_{label}"), height=52)
     with dl_col:
         st.download_button(
             "Download CSV",
@@ -128,20 +129,15 @@ def _render_entity_map() -> None:
 
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    text_rows: list[str] = []
-    for _, row in df.iterrows():
-        values = [str(row[col]).strip() for col in df.columns if str(row[col]).strip()]
-        if values:
-            text_rows.append(separator.join(values))
-    text_output = "\n".join(text_rows)
+    tsv_output = df.to_csv(sep="\t", index=False)
 
     copy_col, txt_col = st.columns(2)
     with copy_col:
-        st.markdown(clipboard_html(text_output, btn_id="copy_entity_map"), unsafe_allow_html=True)
+        components.html(clipboard_html(tsv_output, btn_id="copy_entity_map"), height=52)
     with txt_col:
         st.download_button(
             "Download TXT",
-            data=text_output.encode("utf-8"),
+            data=tsv_output.encode("utf-8"),
             file_name="entity_map.txt",
             mime="text/plain",
             use_container_width=True,
