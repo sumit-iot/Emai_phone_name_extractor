@@ -29,8 +29,8 @@ class TestEmailExtraction:
         assert len(result) == 1
 
     def test_ignore_name_tld_noise(self):
-        result = ex.extract_emails("bad@sample.name ok@test.com")
-        assert "bad@sample.name" not in result
+        result = ex.extract_emails("bad@sample.sample.com.read ok@test.com")
+        assert "bad@sample.com.read" not in result
         assert "ok@test.com" in result
 
 

@@ -1,8 +1,20 @@
 import re
 import streamlit as st
-from src.utils.constants import EMAIL_REGEX, URL_REGEX, PHONE_REGEX
+from src.utils.constants import EMAIL_REGEX, URL_REGEX, PHONE_REGEX, VALID_TLDS
 
 _NAME_PATTERN = re.compile(r'\b([A-Z][a-z]{1,15}(?:\s[A-Z][a-z]{1,15}){1,2})\b')
+
+
+def _strip_invalid_tld(email: str) -> str:
+    """Truncate the domain at the last valid TLD, removing any trailing words."""
+    at, _, domain = email.partition("@")
+    parts = domain.split(".")
+    for i in range(len(parts) - 1, 0, -1):
+        if parts[i] in VALID_TLDS:
+            return at + "@" + ".".join(parts[:i + 1])
+    return email
+
+
 _NAME_SKIP = {
     # Salutations / sign-offs
     'The', 'This', 'That', 'These', 'Hello', 'Dear', 'From', 'To',
@@ -44,7 +56,6 @@ def extract_names_heuristic(text: str) -> list[str]:
     return results
 
 
-@st.cache_resource
 def get_extractor() -> "Extractor":
     return Extractor()
 
@@ -73,9 +84,7 @@ class Extractor:
         found: list[str] = []
         for email in raw:
             cleaned = email.strip().strip(".,;:!?)(").lower()
-            # Drop noisy false-positives like trailing ".name" entries.
-            if cleaned.endswith(".name"):
-                continue
+            cleaned = _strip_invalid_tld(cleaned)
             found.append(cleaned)
         if dedupe:
             found = list(dict.fromkeys(found))

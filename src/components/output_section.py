@@ -1,6 +1,5 @@
 import pandas as pd
 import streamlit as st
-import streamlit.components.v1 as components
 from src.core.extractor import nlp_available
 from src.utils.constants import FORMAT_COLUMNS, SEPARATORS
 from src.utils.exporters import clipboard_html, to_csv_bytes
@@ -44,16 +43,21 @@ def _render_result_block(items: list[str], label: str) -> None:
         )
         return
 
-    st.code(separator.join(items), language=None)
+    text_output = separator.join(items)
+    st.code(text_output, language=None)
 
-    st.download_button(
-        "Download CSV",
-        data=to_csv_bytes(items, label.rstrip("s")),
-        file_name=f"extracted_{label}.csv",
-        mime="text/csv",
-        use_container_width=True,
-        key=f"dl_{label}",
-    )
+    copy_col, dl_col = st.columns(2)
+    with copy_col:
+        st.markdown(clipboard_html(text_output, btn_id=f"copy_{label}"), unsafe_allow_html=True)
+    with dl_col:
+        st.download_button(
+            "Download CSV",
+            data=to_csv_bytes(items, label.rstrip("s")),
+            file_name=f"extracted_{label}.csv",
+            mime="text/csv",
+            use_container_width=True,
+            key=f"dl_{label}",
+        )
 
 
 def _render_entity_map() -> None:
@@ -133,7 +137,7 @@ def _render_entity_map() -> None:
 
     copy_col, txt_col = st.columns(2)
     with copy_col:
-        components.html(clipboard_html(text_output), height=48)
+        st.markdown(clipboard_html(text_output, btn_id="copy_entity_map"), unsafe_allow_html=True)
     with txt_col:
         st.download_button(
             "Download TXT",
