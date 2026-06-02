@@ -70,6 +70,8 @@ def _render_entity_map() -> None:
         return
 
     rows: list[dict] = st.session_state.entity_map
+    if st.session_state.get("hide_no_contact"):
+        rows = [r for r in rows if r.get("Emails") or r.get("URLs")]
     if not rows:
         st.markdown(
             '<div class="empty-state"><p>No entities with contact info found in the same block.</p></div>',
