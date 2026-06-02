@@ -25,7 +25,7 @@ def render_controls() -> None:
             placeholder="e.g. gmail.com",
         )
 
-    c1, c2, c3, c4 = st.columns(4)
+    c1, c2, c3, c4, c5 = st.columns(5)
     with c1:
         st.checkbox("Sort alphabetically", key="sort_alphabetically")
     with c2:
@@ -34,5 +34,7 @@ def render_controls() -> None:
         st.checkbox("Hide directories", key="hide_directory", value=True)
     with c4:
         st.checkbox("Must have email", key="hide_no_email")
+    with c5:
+        st.checkbox("Hide empty email & URL", key="hide_no_contact")
 
     st.markdown("</div>", unsafe_allow_html=True)

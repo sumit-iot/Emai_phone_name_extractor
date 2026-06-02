@@ -205,6 +205,7 @@ def build_result_list(
     hide_directory: bool = True,
     hide_no_email: bool = False,
     hide_no_name: bool = False,
+    hide_no_contact: bool = False,
 ) -> list[dict]:
     seen_emails: set[str] = set()
     rows: list[dict] = []
@@ -229,6 +230,8 @@ def build_result_list(
             continue
         if hide_no_name and not name:
             continue
+        if hide_no_contact and not email_str and not url:
+            continue
         if not url and not email_str and not name:
             continue
 
@@ -251,6 +254,7 @@ def _parse_tsv(
     hide_directory: bool = True,
     hide_no_email: bool = False,
     hide_no_name: bool = False,
+    hide_no_contact: bool = False,
 ) -> list[dict]:
     """
     Column-order agnostic TSV parser.
@@ -301,7 +305,7 @@ def _parse_tsv(
         })
 
     merged = merge_records(raw_records)
-    return build_result_list(merged, hide_directory, hide_no_email, hide_no_name)
+    return build_result_list(merged, hide_directory, hide_no_email, hide_no_name, hide_no_contact)
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -311,10 +315,11 @@ def build_entity_map(
     hide_directory: bool = True,
     hide_no_email: bool = False,
     hide_no_name: bool = False,
+    hide_no_contact: bool = False,
 ) -> list[dict]:
     if _is_tsv(text):
-        return _parse_tsv(text, hide_directory, hide_no_email, hide_no_name)
+        return _parse_tsv(text, hide_directory, hide_no_email, hide_no_name, hide_no_contact)
 
     raw    = parse_blocks(text)
     merged = merge_records(raw)
-    return build_result_list(merged, hide_directory, hide_no_email, hide_no_name)
+    return build_result_list(merged, hide_directory, hide_no_email, hide_no_name, hide_no_contact)

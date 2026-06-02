@@ -18,6 +18,7 @@ _DEFAULTS: dict = {
     "hide_directory": True,
     "hide_no_email": False,
     "hide_no_name": False,
+    "hide_no_contact": False,
     "has_extracted": False,
 }
 
