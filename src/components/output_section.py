@@ -1,10 +1,17 @@
 import pandas as pd
 import streamlit as st
+import streamlit.components.v1 as components
 from src.core.extractor import nlp_available
-from src.utils.constants import SEPARATORS, FORMAT_COLUMNS
-from src.utils.exporters import to_csv_bytes
+from src.utils.constants import FORMAT_COLUMNS, SEPARATORS
+from src.utils.exporters import clipboard_html, to_csv_bytes
 
 _NER_TYPES = {"Names", "Organizations", "All"}
+
+
+def _split_comma_values(cell: str) -> list[str]:
+    if not cell:
+        return []
+    return [part.strip() for part in str(cell).split(",") if part.strip()]
 
 
 def _filtered_sorted(items: list[str], label: str = "") -> list[str]:
@@ -26,14 +33,13 @@ def _render_result_block(items: list[str], label: str) -> None:
     noun = label.rstrip("s") + ("s" if count != 1 else "")
 
     st.markdown(
-        f'<div class="counter-badge">✅ {count} {noun} found</div>',
+        f'<div class="counter-badge">{count} {noun} found</div>',
         unsafe_allow_html=True,
     )
 
     if not items:
         st.markdown(
-            '<div class="empty-state"><div class="icon">🔍</div>'
-            "<p>No results — try adjusting your filter.</p></div>",
+            '<div class="empty-state"><p>No results. Try adjusting your filter.</p></div>',
             unsafe_allow_html=True,
         )
         return
@@ -41,7 +47,7 @@ def _render_result_block(items: list[str], label: str) -> None:
     st.code(separator.join(items), language=None)
 
     st.download_button(
-        "⬇️  Download CSV",
+        "Download CSV",
         data=to_csv_bytes(items, label.rstrip("s")),
         file_name=f"extracted_{label}.csv",
         mime="text/csv",
@@ -61,8 +67,7 @@ def _render_entity_map() -> None:
     rows: list[dict] = st.session_state.entity_map
     if not rows:
         st.markdown(
-            '<div class="empty-state"><div class="icon">🗺️</div>'
-            "<p>No entities with contact info found in the same block.</p></div>",
+            '<div class="empty-state"><p>No entities with contact info found in the same block.</p></div>',
             unsafe_allow_html=True,
         )
         return
@@ -71,35 +76,76 @@ def _render_entity_map() -> None:
     all_cols = ["Name", "URLs", "Emails", "Phones"]
     show_cols = FORMAT_COLUMNS.get(fmt, all_cols)
 
-    # Rebuild df with only the selected columns
     df_full = pd.DataFrame(rows, columns=["Name", "Emails", "Phones", "URLs"])
 
-    # Apply gmail filter to Emails column
     if st.session_state.get("gmail_only") and "Emails" in show_cols:
+
         def _filter_gmails(cell: str) -> str:
             return ", ".join(e for e in cell.split(", ") if e.endswith("@gmail.com"))
+
         df_full["Emails"] = df_full["Emails"].apply(_filter_gmails)
 
     df = df_full[[c for c in show_cols if c in df_full.columns]]
 
-    # Drop rows where all shown contact columns are empty
     contact_cols = [c for c in show_cols if c != "Name"]
     if contact_cols:
         df = df[df[contact_cols].apply(lambda r: r.str.strip().any(), axis=1)]
 
     if df.empty:
-        st.info("No results match the current format / filter.")
+        st.info("No results match the current format or filter.")
         return
 
+    separator = SEPARATORS[st.session_state.separator]
+
+    for col in ("Emails", "Phones", "URLs"):
+        if col in df.columns:
+            split_series = df[col].apply(_split_comma_values)
+            max_items = int(split_series.apply(len).max())
+            if max_items > 1:
+                insert_at = df.columns.get_loc(col)
+                expanded = pd.DataFrame(
+                    {
+                        f"{col} {idx}": split_series.apply(
+                            lambda values, i=idx - 1: values[i] if i < len(values) else ""
+                        )
+                        for idx in range(1, max_items + 1)
+                    }
+                )
+                left = df.iloc[:, :insert_at]
+                right = df.iloc[:, insert_at + 1 :]
+                df = pd.concat([left, expanded, right], axis=1)
+            else:
+                df[col] = split_series.apply(lambda values: values[0] if values else "")
+
     st.markdown(
-        f'<div class="counter-badge">🗺️ {len(df)} entit{"y" if len(df) == 1 else "ies"} — {fmt}</div>',
+        f'<div class="counter-badge">{len(df)} {"entity" if len(df) == 1 else "entities"} - {fmt}</div>',
         unsafe_allow_html=True,
     )
 
     st.dataframe(df, use_container_width=True, hide_index=True)
 
+    text_rows: list[str] = []
+    for _, row in df.iterrows():
+        values = [str(row[col]).strip() for col in df.columns if str(row[col]).strip()]
+        if values:
+            text_rows.append(separator.join(values))
+    text_output = "\n".join(text_rows)
+
+    copy_col, txt_col = st.columns(2)
+    with copy_col:
+        components.html(clipboard_html(text_output), height=48)
+    with txt_col:
+        st.download_button(
+            "Download TXT",
+            data=text_output.encode("utf-8"),
+            file_name="entity_map.txt",
+            mime="text/plain",
+            use_container_width=True,
+            key="dl_map_txt",
+        )
+
     st.download_button(
-        "⬇️  Download CSV",
+        "Download CSV",
         data=df.to_csv(index=False).encode("utf-8"),
         file_name="entity_map.csv",
         mime="text/csv",
@@ -118,14 +164,12 @@ def _nlp_warning() -> None:
 def render_output_section() -> None:
     if not st.session_state.has_extracted:
         st.markdown(
-            '<div class="card"><div class="empty-state"><div class="icon">📋</div>'
-            "<p>Paste your text above and click <strong>Extract</strong> to get started.</p>"
-            "</div></div>",
+            '<div class="card"><div class="empty-state"><p>Paste your text above and click <strong>Extract</strong> to get started.</p></div></div>',
             unsafe_allow_html=True,
         )
         return
 
     st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.markdown("#### 📤 Results")
+    st.markdown("#### Results")
     _render_entity_map()
     st.markdown("</div>", unsafe_allow_html=True)

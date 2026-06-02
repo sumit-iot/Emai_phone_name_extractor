@@ -69,9 +69,16 @@ class Extractor:
         self._phone_re = re.compile(PHONE_REGEX)
 
     def extract_emails(self, text: str, dedupe: bool = True) -> list[str]:
-        found = self._email_re.findall(text)
+        raw = self._email_re.findall(text)
+        found: list[str] = []
+        for email in raw:
+            cleaned = email.strip().strip(".,;:!?)(").lower()
+            # Drop noisy false-positives like trailing ".name" entries.
+            if cleaned.endswith(".name"):
+                continue
+            found.append(cleaned)
         if dedupe:
-            found = list(dict.fromkeys(v.lower() for v in found))
+            found = list(dict.fromkeys(found))
         return found
 
     def extract_urls(self, text: str, dedupe: bool = True) -> list[str]:

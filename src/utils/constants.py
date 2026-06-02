@@ -34,6 +34,7 @@ SEPARATORS: dict[str, str] = {
     "New Line": "\n",
     "Comma": ", ",
     "Semicolon": "; ",
+    "And": " and ",
     "Space": " ",
     "Pipe": " | ",
     "Tab": "\t",

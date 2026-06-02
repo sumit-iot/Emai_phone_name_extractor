@@ -84,7 +84,14 @@ def looks_like_business_name(line: str) -> bool:
 
 
 def extract_emails_from_line(line: str) -> list[str]:
-    return re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', line)
+    matches = re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', line)
+    cleaned: list[str] = []
+    for email in matches:
+        value = email.strip().strip(".,;:!?)(").lower()
+        if value.endswith(".name"):
+            continue
+        cleaned.append(value)
+    return cleaned
 
 
 def extract_url_from_line(line: str) -> list[str]:
