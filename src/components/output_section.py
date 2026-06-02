@@ -128,20 +128,15 @@ def _render_entity_map() -> None:
 
     st.dataframe(df, use_container_width=True, hide_index=True)
 
-    text_rows: list[str] = []
-    for _, row in df.iterrows():
-        values = [str(row[col]).strip() for col in df.columns if str(row[col]).strip()]
-        if values:
-            text_rows.append(separator.join(values))
-    text_output = "\n".join(text_rows)
+    tsv_output = df.to_csv(sep="\t", index=False)
 
     copy_col, txt_col = st.columns(2)
     with copy_col:
-        st.markdown(clipboard_html(text_output, btn_id="copy_entity_map"), unsafe_allow_html=True)
+        st.markdown(clipboard_html(tsv_output, btn_id="copy_entity_map"), unsafe_allow_html=True)
     with txt_col:
         st.download_button(
             "Download TXT",
-            data=text_output.encode("utf-8"),
+            data=tsv_output.encode("utf-8"),
             file_name="entity_map.txt",
             mime="text/plain",
             use_container_width=True,
