@@ -1,4 +1,11 @@
 EMAIL_REGEX = r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}"
+
+VALID_TLDS = {
+    "com", "net", "org", "edu", "gov", "io", "co", "in", "uk", "us", "au",
+    "ca", "de", "fr", "jp", "cn", "ru", "br", "mx", "es", "it", "nl", "se",
+    "no", "fi", "dk", "be", "ch", "at", "nz", "sg", "hk", "info", "biz",
+    "tv", "me", "app", "dev", "ai", "tech", "online", "store", "site", "web",
+}
 _PATH = r"(?:/[-\w._~:/?#\[\]@!$&'()*+,;%=]*)?"
 _TLD = r"(?:com|co|in|net|org|io|edu|gov|uk|us|au|ca|de|fr|info|biz)"
 
@@ -34,6 +41,7 @@ SEPARATORS: dict[str, str] = {
     "New Line": "\n",
     "Comma": ", ",
     "Semicolon": "; ",
+    "And": " and ",
     "Space": " ",
     "Pipe": " | ",
     "Tab": "\t",

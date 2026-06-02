@@ -27,24 +27,26 @@ def to_excel_bytes(df: pd.DataFrame) -> bytes:
     return buf.getvalue()
 
 
-def clipboard_html(text: str) -> str:
-    safe = text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
+def clipboard_html(text: str, btn_id: str = "copy_btn") -> str:
+    safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;").replace("'", "&#39;")
+    escaped_js = text.replace("\\", "\\\\").replace("`", "\\`").replace("$", "\\$")
     return f"""
-    <button onclick="
-      navigator.clipboard.writeText(`{safe}`).then(function() {{
-        this.textContent = '✓ Copied!';
-        this.style.borderColor = '#10b981';
-        this.style.color = '#10b981';
-        setTimeout(() => {{
-          this.textContent = '📋 Copy to Clipboard';
-          this.style.borderColor = '#4d8bf5';
-          this.style.color = '#4d8bf5';
+    <button id="{btn_id}" onclick="
+      var btn = document.getElementById('{btn_id}');
+      navigator.clipboard.writeText(`{escaped_js}`).then(function() {{
+        btn.innerHTML = '&#10003; Copied!';
+        btn.style.borderColor = '#10b981';
+        btn.style.color = '#10b981';
+        setTimeout(function() {{
+          btn.innerHTML = '&#128203; Copy to Clipboard';
+          btn.style.borderColor = '#4d8bf5';
+          btn.style.color = '#4d8bf5';
         }}, 2000);
-      }}.bind(this));
+      }});
     " style="
       width:100%;background:#1a2332;color:#4d8bf5;
       border:1px solid #4d8bf5;padding:8px 16px;
       border-radius:8px;cursor:pointer;font-size:14px;
       font-family:sans-serif;transition:all .2s;
-    ">📋 Copy to Clipboard</button>
+    ">&#128203; Copy to Clipboard</button>
     """

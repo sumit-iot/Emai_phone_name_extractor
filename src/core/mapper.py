@@ -12,7 +12,7 @@ TSV input (tab-separated) is handled separately via _parse_tsv().
 """
 
 import re
-from src.utils.constants import PHONE_REGEX
+from src.utils.constants import PHONE_REGEX, VALID_TLDS
 
 _phone_re = re.compile(PHONE_REGEX)
 
@@ -83,8 +83,22 @@ def looks_like_business_name(line: str) -> bool:
     return True
 
 
+def _strip_invalid_tld(email: str) -> str:
+    at, _, domain = email.partition("@")
+    parts = domain.split(".")
+    for i in range(len(parts) - 1, 0, -1):
+        if parts[i] in VALID_TLDS:
+            return at + "@" + ".".join(parts[:i + 1])
+    return email
+
+
 def extract_emails_from_line(line: str) -> list[str]:
-    return re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', line)
+    matches = re.findall(r'[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}', line)
+    cleaned: list[str] = []
+    for email in matches:
+        value = _strip_invalid_tld(email.strip().strip(".,;:!?)(").lower())
+        cleaned.append(value)
+    return cleaned
 
 
 def extract_url_from_line(line: str) -> list[str]:
@@ -275,7 +289,7 @@ def _parse_tsv(
         for col in cols[1:]:
             if not col:
                 continue
-            emails.extend(e.lower() for e in _email_re.findall(col))
+            emails.extend(_strip_invalid_tld(e.lower()) for e in _email_re.findall(col))
             urls.extend(extract_url_from_line(col))
             phones.extend(extract_phones_from_line(col))
 
