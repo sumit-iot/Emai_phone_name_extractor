@@ -35,6 +35,6 @@ def render_controls() -> None:
     with c4:
         st.checkbox("Must have email", key="hide_no_email")
     with c5:
-        st.checkbox("Hide empty email & URL", key="hide_no_contact")
+        st.checkbox("Hide empty email & URL", key="hide_no_contact", value=True)
 
     st.markdown("</div>", unsafe_allow_html=True)
