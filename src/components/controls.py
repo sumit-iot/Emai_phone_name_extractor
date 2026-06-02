@@ -33,7 +33,7 @@ def render_controls() -> None:
     with c3:
         st.checkbox("Hide directories", key="hide_directory", value=True)
     with c4:
-        st.checkbox("Must have email", key="hide_no_email")
+        st.checkbox("Must have email", key="hide_no_email", value=True)
     with c5:
         st.checkbox("Hide empty email & URL", key="hide_no_contact", value=True)
 
