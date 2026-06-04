@@ -14,4 +14,4 @@ services:
       --server.enableXsrfProtection false
     envVars:
       - key: PYTHON_VERSION
-        value: 3.11.0
+        value: 3.14.0
